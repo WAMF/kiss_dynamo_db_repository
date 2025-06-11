@@ -1,8 +1,7 @@
-import 'package:aws_dynamodb_api/dynamodb-2012-08-10.dart';
 import 'package:document_client/document_client.dart';
 import 'package:kiss_dynamodb_repository/kiss_dynamodb_repository.dart';
+import 'package:kiss_repository/kiss_repository.dart';
 
-import '../../../kiss_repository/lib/kiss_repository.dart';
 import '../../../kiss_repository/shared_test_logic/data/product_model.dart';
 import '../../../kiss_repository/shared_test_logic/data/queries.dart';
 
@@ -32,26 +31,25 @@ class IntegrationTestHelpers {
     // Create test table if it doesn't exist
     await _createTestTableIfNeeded();
 
-    // TODO: Create repository instance once we implement RepositoryDynamoDB
-    // repository = RepositoryDynamoDB<ProductModel>(
-    //   client: documentClient,
-    //   tableName: testTable,
-    //   fromDynamoDB: (item) => ProductModel(
-    //     id: item['id'] as String,
-    //     name: item['name'] as String,
-    //     price: (item['price'] as num).toDouble(),
-    //     description: item['description'] as String? ?? '',
-    //     created: DateTime.parse(item['created'] as String),
-    //   ),
-    //   toDynamoDB: (productModel) => {
-    //     'id': productModel.id,
-    //     'name': productModel.name,
-    //     'price': productModel.price,
-    //     'description': productModel.description,
-    //     'created': productModel.created.toIso8601String(),
-    //   },
-    //   queryBuilder: ProductModelQueryBuilder(),
-    // );
+    // Create repository instance
+    repository = RepositoryDynamoDB<ProductModel>(
+      client: documentClient,
+      tableName: testTable,
+      fromDynamoDB: (item) => ProductModel(
+        id: item['id'] as String,
+        name: item['name'] as String,
+        price: (item['price'] as num).toDouble(),
+        description: item['description'] as String? ?? '',
+        created: DateTime.parse(item['created'] as String),
+      ),
+      toDynamoDB: (productModel) => {
+        'name': productModel.name,
+        'price': productModel.price,
+        'description': productModel.description,
+        'created': productModel.created.toIso8601String(),
+      },
+      queryBuilder: ProductModelQueryBuilder(),
+    );
   }
 
   static Future<void> _createTestTableIfNeeded() async {

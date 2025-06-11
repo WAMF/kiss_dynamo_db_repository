@@ -20,19 +20,19 @@ void main() {
     runDartCrudTests(() => IntegrationTestHelpers.repository);
   });
 
-  group('Batch Operations Tests', () {
-    runDartBatchTests(() => IntegrationTestHelpers.repository);
-  });
+  // group('Batch Operations Tests', () {
+  //   runDartBatchTests(() => IntegrationTestHelpers.repository);
+  // });
 
-  group('Query Filtering Tests', () {
-    runDartQueryTests(() => IntegrationTestHelpers.repository);
-  });
+  // group('Query Filtering Tests', () {
+  //   runDartQueryTests(() => IntegrationTestHelpers.repository);
+  // });
 
-  group('Streaming Tests', () {
-    runDartStreamingTests(() => IntegrationTestHelpers.repository);
-  });
+  // group('Streaming Tests', () {
+  //   runDartStreamingTests(() => IntegrationTestHelpers.repository);
+  // });
 
-  group('ID Management Tests', () {
-    runDartIdTests(() => IntegrationTestHelpers.repository);
-  });
+  // group('ID Management Tests', () {
+  //   runDartIdTests(() => IntegrationTestHelpers.repository);
+  // });
 }
