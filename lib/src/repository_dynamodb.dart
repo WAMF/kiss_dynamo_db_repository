@@ -2,76 +2,10 @@ import 'dart:async';
 
 import 'package:document_client/document_client.dart';
 import 'package:kiss_repository/kiss_repository.dart';
-import 'package:uuid/uuid.dart';
 
-/// Special IdentifiedObject subclass that generates DynamoDB IDs on-demand
-class DynamoDBIdentifiedObject<T> extends IdentifiedObject<T> {
-  DynamoDBIdentifiedObject(T object, this._updateObjectWithId) : super('', object);
-
-  final T Function(T object, String id) _updateObjectWithId;
-  String? _cachedId;
-  T? _cachedUpdatedObject;
-
-  @override
-  String get id {
-    _cachedId ??= _generateDynamoDBId();
-    return _cachedId!;
-  }
-
-  @override
-  T get object {
-    if (_cachedUpdatedObject == null) {
-      final generatedId = id; // This will generate and cache the ID if needed
-      _cachedUpdatedObject = _updateObjectWithId(super.object, generatedId);
-    }
-    return _cachedUpdatedObject!;
-  }
-
-  /// Generates a UUID for DynamoDB (similar to Firestore document IDs)
-  String _generateDynamoDBId() {
-    return const Uuid().v4();
-  }
-
-  /// Convenience factory method for creating objects with auto-generated IDs
-  factory DynamoDBIdentifiedObject.create(T object, T Function(T object, String id) updateObjectWithId) =>
-      DynamoDBIdentifiedObject(object, updateObjectWithId);
-}
-
-// Type conversion helpers (similar to Firebase implementation)
-dynamic _dynamoDbToDartTypeConversion(dynamic value) {
-  if (value is String) {
-    // Try to parse ISO 8601 datetime strings
-    if (DateTime.tryParse(value) != null) {
-      return DateTime.parse(value);
-    }
-  }
-  if (value is Map<String, dynamic>) {
-    final entries = value.entries.map((entry) {
-      return MapEntry<String, dynamic>(entry.key, _dynamoDbToDartTypeConversion(entry.value));
-    });
-    return Map<String, dynamic>.fromEntries(entries);
-  }
-  if (value is List) {
-    return value.map(_dynamoDbToDartTypeConversion).toList();
-  }
-  return value;
-}
-
-dynamic _dartToDynamoDbTypeConversion(dynamic value) {
-  if (value is DateTime) {
-    return value.toIso8601String();
-  }
-  if (value is Map<String, dynamic>) {
-    final entries = value.entries.map((entry) {
-      return MapEntry<String, dynamic>(entry.key, _dartToDynamoDbTypeConversion(entry.value));
-    });
-    return Map<String, dynamic>.fromEntries(entries);
-  }
-  if (value is List) {
-    return value.map(_dartToDynamoDbTypeConversion).toList();
-  }
-  return value;
-}
+import 'utils/batch_operations.dart';
+import 'utils/dynamodb_identified_object.dart';
+import 'utils/type_converter.dart';
 
 class RepositoryDynamoDB<T> extends Repository<T> {
   RepositoryDynamoDB({
@@ -277,20 +211,28 @@ class RepositoryDynamoDB<T> extends Repository<T> {
 
   @override
   Future<Iterable<T>> updateAll(Iterable<IdentifiedObject<T>> items) async {
-    try {
-      final results = <T>[];
+    if (items.isEmpty) return [];
 
-      for (final item in items) {
+    try {
+      final itemsList = items.toList();
+
+      // Step 1: Batch check that ALL items exist (atomic validation)
+      await checkItemsExist(client: client, tableName: tableName, ids: itemsList.map((item) => item.id));
+
+      // Step 2: Batch update all items (they all exist now)
+      await batchWriteItems<T>(client: client, tableName: tableName, items: itemsList, toDynamoDB: toDynamoDB);
+
+      // Step 3: Return the updated results
+      final results = <T>[];
+      for (final item in itemsList) {
         final data = toDynamoDB(item.object);
         data['id'] = item.id;
-
-        await client.put(tableName: tableName, item: data);
-
         results.add(fromDynamoDB(data));
       }
 
       return results;
     } catch (e) {
+      if (e is RepositoryException) rethrow;
       throw RepositoryException(message: 'Batch update operation failed: $e');
     }
   }

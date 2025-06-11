@@ -16,13 +16,13 @@ void main() {
     await IntegrationTestHelpers.clearTestTable();
   });
 
-  group('DynamoDB Repository - Centralized CRUD Tests', () {
-    runDartCrudTests(() => IntegrationTestHelpers.repository);
-  });
-
-  // group('Batch Operations Tests', () {
-  //   runDartBatchTests(() => IntegrationTestHelpers.repository);
+  // group('DynamoDB Repository - Centralized CRUD Tests', () {
+  //   runDartCrudTests(() => IntegrationTestHelpers.repository);
   // });
+
+  group('Batch Operations Tests', () {
+    runDartBatchTests(() => IntegrationTestHelpers.repository);
+  });
 
   // group('Query Filtering Tests', () {
   //   runDartQueryTests(() => IntegrationTestHelpers.repository);
