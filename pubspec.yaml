@@ -7,6 +7,10 @@ environment:
   sdk: ^3.8.0
 
 dependencies:
+  document_client: ^2.0.0           # Primary DynamoDB interface
+  aws_dynamodb_api: ^2.0.0          # Low-level AWS API client
+  shared_aws_api: ^2.0.0            # AWS shared utilities
+  
   kiss_repository:
     path: ../kiss_repository
 
