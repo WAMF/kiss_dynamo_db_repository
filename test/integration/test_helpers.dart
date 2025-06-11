@@ -3,7 +3,7 @@ import 'package:kiss_dynamodb_repository/kiss_dynamodb_repository.dart';
 import 'package:kiss_repository/kiss_repository.dart';
 
 import '../../../kiss_repository/shared_test_logic/data/product_model.dart';
-import '../../../kiss_repository/shared_test_logic/data/queries.dart';
+import 'dynamodb_query_builder.dart';
 
 class IntegrationTestHelpers {
   static late DynamoDB dynamoDB;
@@ -31,7 +31,7 @@ class IntegrationTestHelpers {
     // Create test table if it doesn't exist
     await _createTestTableIfNeeded();
 
-    // Create repository instance
+    // Create repository instance with DynamoDB-specific query builder
     repository = RepositoryDynamoDB<ProductModel>(
       client: documentClient,
       tableName: testTable,
@@ -48,7 +48,7 @@ class IntegrationTestHelpers {
         'description': productModel.description,
         'created': productModel.created.toIso8601String(),
       },
-      queryBuilder: ProductModelQueryBuilder(),
+      queryBuilder: DynamoDBProductModelQueryBuilder(),
     );
   }
 

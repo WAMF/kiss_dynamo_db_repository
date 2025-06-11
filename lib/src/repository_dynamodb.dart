@@ -20,7 +20,7 @@ class RepositoryDynamoDB<T> extends Repository<T> {
   final String tableName;
   final T Function(Map<String, dynamic> item) fromDynamoDB;
   final Map<String, dynamic> Function(T object) toDynamoDB;
-  final QueryBuilder<String>? queryBuilder;
+  final QueryBuilder<Map<String, dynamic>>? queryBuilder;
 
   @override
   String get path => tableName;
@@ -103,22 +103,134 @@ class RepositoryDynamoDB<T> extends Repository<T> {
         // Simple scan for all items
         final result = await client.scan(tableName: tableName);
         final items = result.items ?? [];
-        return items.map((item) => fromDynamoDB(item)).toList();
+        final objects = items.map((item) => fromDynamoDB(item)).toList();
+
+        // Sort by creation date descending (newest first) to match other repositories
+        objects.sort((a, b) {
+          // Try to extract creation date from objects
+          try {
+            final aCreated = _extractCreatedDate(a);
+            final bCreated = _extractCreatedDate(b);
+            return bCreated.compareTo(aCreated); // Descending order (newest first)
+          } catch (e) {
+            // If sorting fails, maintain original order
+            return 0;
+          }
+        });
+
+        return objects;
       } else if (queryBuilder != null) {
-        // TODO: Implement query builder support later
-        throw RepositoryException(
-          message: 'Custom queries not yet implemented for DynamoDB. Only AllQuery is currently supported.',
+        // Use query builder to create scan parameters
+        final scanParams = queryBuilder!.build(query);
+        if (scanParams.isEmpty) {
+          throw RepositoryException(message: 'Query builder returned empty scan parameters for query: $query');
+        }
+
+        // Extract components from the scan parameters map
+        final filterExpression = scanParams['filterExpression'] as String?;
+        final expressionAttributeNames = scanParams['expressionAttributeNames'] as Map<String, String>?;
+        final expressionAttributeValues = scanParams['expressionAttributeValues'] as Map<String, dynamic>?;
+
+        // Scan with filter expression
+        final result = await client.scan(
+          tableName: tableName,
+          filterExpression: filterExpression,
+          expressionAttributeValues: expressionAttributeValues,
+          expressionAttributeNames: expressionAttributeNames,
         );
+
+        final items = result.items ?? [];
+        final objects = items.map((item) => fromDynamoDB(item)).toList();
+
+        // Sort by creation date descending for consistency with AllQuery
+        objects.sort((a, b) {
+          try {
+            final aCreated = _extractCreatedDate(a);
+            final bCreated = _extractCreatedDate(b);
+            return bCreated.compareTo(aCreated);
+          } catch (e) {
+            return 0;
+          }
+        });
+
+        return objects;
       } else {
         throw RepositoryException(
           message:
               'Query builder required for custom queries. '
-              'Please provide a QueryBuilder<String> in the repository constructor.',
+              'Please provide a QueryBuilder<Map<String, dynamic>> in the repository constructor.',
         );
       }
     } catch (e) {
       if (e is RepositoryException) rethrow;
       throw RepositoryException(message: 'Failed to query records: $e');
+    }
+  }
+
+  /// Build expression attribute values for DynamoDB filter expressions
+  Map<String, dynamic>? _buildExpressionAttributeValues(Query query) {
+    // Import the query types
+    if (query.runtimeType.toString().contains('QueryByName')) {
+      final dynamic queryByName = query;
+      return {':namePrefix': queryByName.namePrefix};
+    }
+    if (query.runtimeType.toString().contains('QueryByPriceGreaterThan')) {
+      final dynamic queryByPrice = query;
+      return {':priceThreshold': queryByPrice.price};
+    }
+    if (query.runtimeType.toString().contains('QueryByPriceLessThan')) {
+      final dynamic queryByPrice = query;
+      return {':priceThreshold': queryByPrice.price};
+    }
+    if (query.runtimeType.toString().contains('QueryByCreatedAfter')) {
+      final dynamic queryByCreated = query;
+      return {':dateThreshold': queryByCreated.date.toIso8601String()};
+    }
+    if (query.runtimeType.toString().contains('QueryByCreatedBefore')) {
+      final dynamic queryByCreated = query;
+      return {':dateThreshold': queryByCreated.date.toIso8601String()};
+    }
+    return null;
+  }
+
+  /// Build expression attribute names for DynamoDB filter expressions
+  Map<String, String>? _buildExpressionAttributeNames(Query query) {
+    if (query.runtimeType.toString().contains('QueryByName')) {
+      return {'#name': 'name'};
+    }
+    if (query.runtimeType.toString().contains('QueryByPrice')) {
+      return {'#price': 'price'};
+    }
+    if (query.runtimeType.toString().contains('QueryByCreated')) {
+      return {'#created': 'created'};
+    }
+    return null;
+  }
+
+  /// Helper method to extract creation date from objects
+  /// Assumes objects have a 'created' field that is a DateTime
+  DateTime _extractCreatedDate(T object) {
+    // Use reflection-like approach to get the created field
+    // This is a bit hacky but necessary for generic sorting
+    final objectStr = object.toString();
+    final match = RegExp(r'created:\s*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?)').firstMatch(objectStr);
+    if (match != null) {
+      return DateTime.parse(match.group(1)!);
+    }
+
+    // Alternative: try to access as dynamic
+    try {
+      final dynamic obj = object;
+      if (obj is Map && obj.containsKey('created')) {
+        final created = obj['created'];
+        if (created is DateTime) return created;
+        if (created is String) return DateTime.parse(created);
+      }
+      // Try to access created property directly
+      return (obj as dynamic).created as DateTime;
+    } catch (e) {
+      // If all else fails, use current time (objects will be in random order)
+      return DateTime.now();
     }
   }
 
