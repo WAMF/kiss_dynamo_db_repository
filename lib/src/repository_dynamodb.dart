@@ -1,14 +1,11 @@
 import 'dart:async';
 
-import 'package:collection/collection.dart';
 import 'package:document_client/document_client.dart';
 import 'package:kiss_repository/kiss_repository.dart';
 
 import 'utils/batch_operations.dart';
 import 'utils/dynamodb_identified_object.dart';
 import 'utils/object_extraction_helpers.dart';
-import 'utils/query_expression_helpers.dart';
-import 'utils/type_converter.dart';
 
 class RepositoryDynamoDB<T> extends Repository<T> {
   RepositoryDynamoDB({
@@ -170,14 +167,20 @@ class RepositoryDynamoDB<T> extends Repository<T> {
 
   @override
   Future<Iterable<T>> addAll(Iterable<IdentifiedObject<T>> items) async {
-    try {
-      // DynamoDB doesn't have batch writes in document client, so we'll use individual puts
-      // TODO: Optimize with BatchWriteItem when implementing native DynamoDB operations
-      final results = <T>[];
+    if (items.isEmpty) return [];
 
-      for (final item in items) {
-        final result = await add(item);
-        results.add(result);
+    try {
+      final itemsList = items.toList();
+
+      // Use DynamoDB BatchWriteItem for efficient bulk operations
+      await batchWriteItems<T>(client: client, tableName: tableName, items: itemsList, toDynamoDB: toDynamoDB);
+
+      // Return the added results
+      final results = <T>[];
+      for (final item in itemsList) {
+        final data = toDynamoDB(item.object);
+        data['id'] = item.id;
+        results.add(fromDynamoDB(data));
       }
 
       return results;
@@ -216,10 +219,11 @@ class RepositoryDynamoDB<T> extends Repository<T> {
 
   @override
   Future<void> deleteAll(Iterable<String> ids) async {
+    if (ids.isEmpty) return;
+
     try {
-      for (final id in ids) {
-        await delete(id);
-      }
+      // Use DynamoDB BatchWriteItem for efficient bulk deletions
+      await batchDeleteItems(client: client, tableName: tableName, ids: ids);
     } catch (e) {
       throw RepositoryException(message: 'Batch delete operation failed: $e');
     }

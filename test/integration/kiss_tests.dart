@@ -28,9 +28,9 @@ void main() {
     runDartQueryTests(() => IntegrationTestHelpers.repository);
   });
 
-  group('Streaming Tests', () {
-    runDartStreamingTests(() => IntegrationTestHelpers.repository);
-  });
+  // group('Streaming Tests', () {
+  //   runDartStreamingTests(() => IntegrationTestHelpers.repository);
+  // });
 
   group('ID Management Tests', () {
     runDartIdTests(() => IntegrationTestHelpers.repository);

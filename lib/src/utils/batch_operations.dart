@@ -67,3 +67,27 @@ Future<void> batchWriteItems<T>({
     await dynamoDB.batchWriteItem(requestItems: {tableName: writeRequests});
   }
 }
+
+/// Batch delete items using BatchWriteItem with DeleteRequest
+Future<void> batchDeleteItems({
+  required DocumentClient client,
+  required String tableName,
+  required Iterable<String> ids,
+}) async {
+  const int batchSize = 25; // DynamoDB BatchWriteItem limit
+  final idsList = ids.toList();
+
+  for (int i = 0; i < idsList.length; i += batchSize) {
+    final batchIds = idsList.skip(i).take(batchSize).toList();
+    final writeRequests = <WriteRequest>[];
+
+    for (final id in batchIds) {
+      final key = {'id': AttributeValue(s: id)};
+      writeRequests.add(WriteRequest(deleteRequest: DeleteRequest(key: key)));
+    }
+
+    // Execute batch delete using the underlying DynamoDB client
+    final dynamoDB = client.dynamoDB;
+    await dynamoDB.batchWriteItem(requestItems: {tableName: writeRequests});
+  }
+}
