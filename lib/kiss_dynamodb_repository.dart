@@ -1,4 +1,4 @@
-library kiss_dynamodb_repository;
+library;
 
 export 'src/repository_dynamodb.dart';
 export 'src/utils/batch_operations.dart';
