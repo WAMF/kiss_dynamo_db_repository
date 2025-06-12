@@ -74,3 +74,49 @@ This package is part of the KISS repository family:
 - `kiss_firebase_repository` - Firestore implementation  
 - `kiss_pocketbase_repository` - PocketBase implementation
 - `kiss_dynamodb_repository` - DynamoDB implementation (this package)
+
+
+### ⚠️ Streaming Not Implemented
+
+**Real-time streaming capabilities (`stream()` and `streamQuery()`) are not implemented in this version.**
+
+These methods will throw `UnimplementedError` when called. This is due to the architectural complexity required for proper DynamoDB streaming, which would need:
+
+- DynamoDB Streams configuration
+- AWS Lambda functions for stream processing  
+- WebSocket or similar real-time communication layer
+
+For real-time updates, consider using:
+- **Firebase/Firestore** via `kiss_firebase_repository`
+- **PocketBase** via `kiss_pocketbase_repository`  
+- Implementing a custom streaming solution with AWS infrastructure
+
+#### Future Implementation: Production Architecture
+
+For reference, a proper DynamoDB streaming implementation would require this architecture:
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Dart Client   │◄──►│  API Gateway    │◄──►│  Lambda Function│
+│  (WebSocket)    │    │  (WebSocket)    │    │ (Stream Processor)│
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                                        ▲
+                                                        │
+                                              ┌─────────────────┐
+                                              │ DynamoDB Stream │
+                                              │   (Pull-based)  │
+                                              └─────────────────┘
+```
+
+**Required AWS Infrastructure:**
+1. **DynamoDB Stream** - Captures table changes (INSERT/MODIFY/DELETE events)
+2. **AWS Lambda Function** - Processes stream events and filters by subscription
+3. **API Gateway WebSocket API** - Manages persistent client connections
+4. **Connection Management** - Store client subscriptions and connection IDs
+
+**Why Client-Side Polling Doesn't Work:**
+- **DynamoDB Streams** are server-side, pull-based mechanisms designed for AWS Lambda
+- **Client applications** expect push-based, real-time updates over persistent connections
+- **Polling approaches** are inefficient, not truly real-time, and don't scale
+
+This architectural requirement is why streaming is not implemented in this repository version.

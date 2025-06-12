@@ -160,95 +160,12 @@ class RepositoryDynamoDB<T> extends Repository<T> {
 
   @override
   Stream<T> stream(String id) {
-    final controller = StreamController<T>();
-    bool hasEmitted = false;
-    T? lastEmittedData;
-    Timer? timer;
-    int emissionCount = 0;
-
-    void fetchAndEmit() async {
-      try {
-        final data = await get(id);
-
-        if (!hasEmitted || data != lastEmittedData) {
-          hasEmitted = true;
-          lastEmittedData = data;
-          emissionCount++;
-
-          final dynamic obj = data;
-          final name = extractName(obj);
-          print('🔄 Stream emission #$emissionCount for $id: name="$name"');
-          controller.add(data);
-        }
-      } catch (e) {
-        if (e is RepositoryException && e.message.contains('not found')) {
-          if (!hasEmitted) {
-            controller.addError(RepositoryException.notFound(id));
-          } else {
-            controller.close();
-          }
-        } else {
-          controller.addError(e);
-        }
-      }
-    }
-
-    controller.onListen = () {
-      print('🎧 Started listening to stream for $id');
-      fetchAndEmit();
-      timer = Timer.periodic(Duration(milliseconds: 100), (_) => fetchAndEmit());
-    };
-
-    controller.onCancel = () {
-      print('🛑 Cancelled stream for $id after $emissionCount emissions');
-      timer?.cancel();
-    };
-
-    return controller.stream;
+    throw UnimplementedError();
   }
 
   @override
   Stream<List<T>> streamQuery({Query query = const AllQuery()}) {
-    late StreamController<List<T>> controller;
-    Timer? timer;
-    List<T>? lastEmittedData;
-    int emissionCount = 0;
-
-    controller = StreamController<List<T>>(
-      onListen: () async {
-        print('🎧 Started listening to query stream');
-        try {
-          final initialData = await this.query(query: query);
-          lastEmittedData = List.from(initialData);
-          emissionCount++;
-          print('🔄 Query stream emission #$emissionCount: ${initialData.length} items');
-          controller.add(initialData);
-        } catch (e) {
-          controller.addError(e);
-        }
-
-        timer = Timer.periodic(Duration(milliseconds: 10), (_) async {
-          try {
-            final data = await this.query(query: query);
-            // Use Dart's built-in list equality - much simpler!
-            if (!const ListEquality().equals(lastEmittedData, data)) {
-              lastEmittedData = List.from(data);
-              emissionCount++;
-              print('🔄 Query stream emission #$emissionCount: ${data.length} items');
-              controller.add(data);
-            }
-          } catch (e) {
-            controller.addError(e);
-          }
-        });
-      },
-      onCancel: () {
-        print('🛑 Cancelled query stream after $emissionCount emissions');
-        timer?.cancel();
-      },
-    );
-
-    return controller.stream;
+    throw UnimplementedError();
   }
 
   @override
