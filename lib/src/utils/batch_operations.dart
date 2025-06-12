@@ -69,7 +69,6 @@ Future<void> batchWriteItems<T>({
 
     for (final item in batchItems) {
       final data = toDynamoDB(item.object);
-      data['id'] = item.id;
 
       final attributeValueMap = <String, AttributeValue>{};
       for (final entry in data.entries) {

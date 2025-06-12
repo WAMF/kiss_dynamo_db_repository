@@ -45,7 +45,6 @@ class RepositoryDynamoDB<T> extends Repository<T> {
   Future<T> add(IdentifiedObject<T> item) async {
     try {
       final data = toDynamoDB(item.object);
-      data['id'] = item.id;
 
       await client.put(
         tableName: tableName,
@@ -72,7 +71,6 @@ class RepositoryDynamoDB<T> extends Repository<T> {
       final current = fromDynamoDB(currentResult.item);
       final updated = updater(current);
       final data = toDynamoDB(updated);
-      data['id'] = id; // Ensure ID is preserved
 
       // Update the item
       await client.put(tableName: tableName, item: data);
@@ -154,7 +152,6 @@ class RepositoryDynamoDB<T> extends Repository<T> {
       final results = <T>[];
       for (final item in itemsList) {
         final data = toDynamoDB(item.object);
-        data['id'] = item.id;
         results.add(fromDynamoDB(data));
       }
 
@@ -181,7 +178,6 @@ class RepositoryDynamoDB<T> extends Repository<T> {
       final results = <T>[];
       for (final item in itemsList) {
         final data = toDynamoDB(item.object);
-        data['id'] = item.id;
         results.add(fromDynamoDB(data));
       }
 

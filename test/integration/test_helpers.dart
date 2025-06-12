@@ -43,6 +43,7 @@ class IntegrationTestHelpers {
         created: DateTime.parse(item['created'] as String),
       ),
       toDynamoDB: (productModel) => {
+        'id': productModel.id,
         'name': productModel.name,
         'price': productModel.price,
         'description': productModel.description,
