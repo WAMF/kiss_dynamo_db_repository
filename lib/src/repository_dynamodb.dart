@@ -97,58 +97,33 @@ class RepositoryDynamoDB<T> extends Repository<T> {
   @override
   Future<List<T>> query({Query query = const AllQuery()}) async {
     try {
+      QueryOutputDC result;
+
       if (query is AllQuery) {
-        // Simple scan for all items
-        final result = await client.scan(tableName: tableName);
-        final items = result.items ?? [];
-        final objects = items.map((item) => fromDynamoDB(item)).toList();
-
-        // Sort by creation date descending (newest first) to match other repositories
-        objects.sort((a, b) {
-          try {
-            return extractCreatedDate(b).compareTo(extractCreatedDate(a));
-          } catch (e) {
-            return 0; // Maintain original order if sorting fails
-          }
-        });
-
-        return objects;
+        result = await client.scan(tableName: tableName);
       } else if (queryBuilder != null) {
-        // Use query builder to create scan parameters
         final scanParams = queryBuilder!.build(query);
 
-        final filterExpression = scanParams['filterExpression'] as String?;
-        final expressionAttributeNames = scanParams['expressionAttributeNames'] as Map<String, String>?;
-        final expressionAttributeValues = scanParams['expressionAttributeValues'] as Map<String, dynamic>?;
-
-        // Scan with filter expression
-        final result = await client.scan(
+        result = await client.scan(
           tableName: tableName,
-          filterExpression: filterExpression,
-          expressionAttributeValues: filterExpression != null ? expressionAttributeValues : null,
-          expressionAttributeNames: filterExpression != null ? expressionAttributeNames : null,
+          filterExpression: scanParams['filterExpression'] as String?,
+          expressionAttributeNames: scanParams['expressionAttributeNames'] as Map<String, String>?,
+          expressionAttributeValues: scanParams['expressionAttributeValues'] as Map<String, dynamic>?,
         );
-
-        final items = result.items ?? [];
-        final objects = items.map((item) => fromDynamoDB(item)).toList();
-
-        // Sort by creation date descending for consistency with AllQuery
-        objects.sort((a, b) {
-          try {
-            return extractCreatedDate(b).compareTo(extractCreatedDate(a));
-          } catch (e) {
-            return 0; // Maintain original order if sorting fails
-          }
-        });
-
-        return objects;
       } else {
         throw RepositoryException(
           message:
               'Query builder required for custom queries. '
-              'Please provide a QueryBuilder<Map<String, dynamic>> in the repository constructor.',
+              'Please provide a QueryBuilder<Map<String, dynamic>>.',
         );
       }
+
+      final items = result.items;
+      final objects = items.map(fromDynamoDB).toList();
+
+      objects.sort((a, b) => extractCreatedDate(b).compareTo(extractCreatedDate(a)));
+
+      return objects;
     } catch (e) {
       if (e is RepositoryException) rethrow;
       throw RepositoryException(message: 'Failed to query records: $e');
