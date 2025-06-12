@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:document_client/document_client.dart';
 import 'package:kiss_repository/kiss_repository.dart';
 
 import 'utils/batch_operations.dart';
 import 'utils/dynamodb_identified_object.dart';
-import 'utils/type_converter.dart';
+import 'utils/object_extraction_helpers.dart';
+import 'utils/query_expression_helpers.dart';
 
 class RepositoryDynamoDB<T> extends Repository<T> {
   RepositoryDynamoDB({
@@ -30,11 +32,7 @@ class RepositoryDynamoDB<T> extends Repository<T> {
     try {
       final result = await client.get(tableName: tableName, key: {'id': id});
 
-      if (result.item == null) {
-        throw RepositoryException.notFound(id);
-      }
-
-      return fromDynamoDB(result.item!);
+      return fromDynamoDB(result.item);
     } catch (e) {
       if (e is RepositoryException) rethrow;
       throw RepositoryException(message: 'Failed to get record: $e');
@@ -67,11 +65,7 @@ class RepositoryDynamoDB<T> extends Repository<T> {
       // Get current item
       final currentResult = await client.get(tableName: tableName, key: {'id': id});
 
-      if (currentResult.item == null) {
-        throw RepositoryException.notFound(id);
-      }
-
-      final current = fromDynamoDB(currentResult.item!);
+      final current = fromDynamoDB(currentResult.item);
       final updated = updater(current);
       final data = toDynamoDB(updated);
       data['id'] = id; // Ensure ID is preserved
@@ -109,8 +103,8 @@ class RepositoryDynamoDB<T> extends Repository<T> {
         objects.sort((a, b) {
           // Try to extract creation date from objects
           try {
-            final aCreated = _extractCreatedDate(a);
-            final bCreated = _extractCreatedDate(b);
+            final aCreated = extractCreatedDate(a);
+            final bCreated = extractCreatedDate(b);
             return bCreated.compareTo(aCreated); // Descending order (newest first)
           } catch (e) {
             // If sorting fails, maintain original order
@@ -121,15 +115,15 @@ class RepositoryDynamoDB<T> extends Repository<T> {
         return objects;
       } else if (queryBuilder != null) {
         // Use query builder to create scan parameters
-        final scanParams = queryBuilder!.build(query);
-        if (scanParams.isEmpty) {
+        final scanParams = buildExpressionAttributeValues(query);
+        if (scanParams == null || scanParams.isEmpty) {
           throw RepositoryException(message: 'Query builder returned empty scan parameters for query: $query');
         }
 
         // Extract components from the scan parameters map
         final filterExpression = scanParams['filterExpression'] as String?;
-        final expressionAttributeNames = scanParams['expressionAttributeNames'] as Map<String, String>?;
-        final expressionAttributeValues = scanParams['expressionAttributeValues'] as Map<String, dynamic>?;
+        final expressionAttributeNames = buildExpressionAttributeNames(query);
+        final expressionAttributeValues = scanParams;
 
         // Scan with filter expression
         final result = await client.scan(
@@ -145,8 +139,8 @@ class RepositoryDynamoDB<T> extends Repository<T> {
         // Sort by creation date descending for consistency with AllQuery
         objects.sort((a, b) {
           try {
-            final aCreated = _extractCreatedDate(a);
-            final bCreated = _extractCreatedDate(b);
+            final aCreated = extractCreatedDate(a);
+            final bCreated = extractCreatedDate(b);
             return bCreated.compareTo(aCreated);
           } catch (e) {
             return 0;
@@ -167,92 +161,35 @@ class RepositoryDynamoDB<T> extends Repository<T> {
     }
   }
 
-  /// Build expression attribute values for DynamoDB filter expressions
-  Map<String, dynamic>? _buildExpressionAttributeValues(Query query) {
-    // Import the query types
-    if (query.runtimeType.toString().contains('QueryByName')) {
-      final dynamic queryByName = query;
-      return {':namePrefix': queryByName.namePrefix};
-    }
-    if (query.runtimeType.toString().contains('QueryByPriceGreaterThan')) {
-      final dynamic queryByPrice = query;
-      return {':priceThreshold': queryByPrice.price};
-    }
-    if (query.runtimeType.toString().contains('QueryByPriceLessThan')) {
-      final dynamic queryByPrice = query;
-      return {':priceThreshold': queryByPrice.price};
-    }
-    if (query.runtimeType.toString().contains('QueryByCreatedAfter')) {
-      final dynamic queryByCreated = query;
-      return {':dateThreshold': queryByCreated.date.toIso8601String()};
-    }
-    if (query.runtimeType.toString().contains('QueryByCreatedBefore')) {
-      final dynamic queryByCreated = query;
-      return {':dateThreshold': queryByCreated.date.toIso8601String()};
-    }
-    return null;
-  }
-
-  /// Build expression attribute names for DynamoDB filter expressions
-  Map<String, String>? _buildExpressionAttributeNames(Query query) {
-    if (query.runtimeType.toString().contains('QueryByName')) {
-      return {'#name': 'name'};
-    }
-    if (query.runtimeType.toString().contains('QueryByPrice')) {
-      return {'#price': 'price'};
-    }
-    if (query.runtimeType.toString().contains('QueryByCreated')) {
-      return {'#created': 'created'};
-    }
-    return null;
-  }
-
-  /// Helper method to extract creation date from objects
-  /// Assumes objects have a 'created' field that is a DateTime
-  DateTime _extractCreatedDate(T object) {
-    // Use reflection-like approach to get the created field
-    // This is a bit hacky but necessary for generic sorting
-    final objectStr = object.toString();
-    final match = RegExp(r'created:\s*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?)').firstMatch(objectStr);
-    if (match != null) {
-      return DateTime.parse(match.group(1)!);
-    }
-
-    // Alternative: try to access as dynamic
-    try {
-      final dynamic obj = object;
-      if (obj is Map && obj.containsKey('created')) {
-        final created = obj['created'];
-        if (created is DateTime) return created;
-        if (created is String) return DateTime.parse(created);
-      }
-      // Try to access created property directly
-      return (obj as dynamic).created as DateTime;
-    } catch (e) {
-      // If all else fails, use current time (objects will be in random order)
-      return DateTime.now();
-    }
-  }
-
   @override
   Stream<T> stream(String id) {
-    // TODO: Implement DynamoDB Streams or polling-based approach
-    // For now, return a simple polling stream similar to Firebase's approach
     final controller = StreamController<T>();
     bool hasEmitted = false;
+    T? lastEmittedData;
     Timer? timer;
+    int emissionCount = 0;
 
     void fetchAndEmit() async {
       try {
         final data = await get(id);
-        hasEmitted = true;
-        controller.add(data);
+
+        if (!hasEmitted || data != lastEmittedData) {
+          hasEmitted = true;
+          lastEmittedData = data;
+          emissionCount++;
+
+          final dynamic obj = data;
+          final name = extractName(obj);
+          print('🔄 Stream emission #$emissionCount for $id: name="$name"');
+          controller.add(data);
+        }
       } catch (e) {
-        if (!hasEmitted && e is RepositoryException && e.message.contains('not found')) {
-          controller.addError(RepositoryException.notFound(id));
-        } else if (hasEmitted && e is RepositoryException && e.message.contains('not found')) {
-          // Document was deleted, close the stream
-          controller.close();
+        if (e is RepositoryException && e.message.contains('not found')) {
+          if (!hasEmitted) {
+            controller.addError(RepositoryException.notFound(id));
+          } else {
+            controller.close();
+          }
         } else {
           controller.addError(e);
         }
@@ -260,44 +197,58 @@ class RepositoryDynamoDB<T> extends Repository<T> {
     }
 
     controller.onListen = () {
-      // Emit initial data
+      print('🎧 Started listening to stream for $id');
       fetchAndEmit();
-      // Set up polling (every 2 seconds)
-      timer = Timer.periodic(Duration(seconds: 2), (_) => fetchAndEmit());
+      timer = Timer.periodic(Duration(milliseconds: 100), (_) => fetchAndEmit());
     };
 
-    controller.onCancel = () => timer?.cancel();
+    controller.onCancel = () {
+      print('🛑 Cancelled stream for $id after $emissionCount emissions');
+      timer?.cancel();
+    };
 
     return controller.stream;
   }
 
   @override
   Stream<List<T>> streamQuery({Query query = const AllQuery()}) {
-    // Similar to Firebase approach with polling
     late StreamController<List<T>> controller;
     Timer? timer;
+    List<T>? lastEmittedData;
+    int emissionCount = 0;
 
     controller = StreamController<List<T>>(
       onListen: () async {
-        // Emit initial data immediately
+        print('🎧 Started listening to query stream');
         try {
           final initialData = await this.query(query: query);
+          lastEmittedData = List.from(initialData);
+          emissionCount++;
+          print('🔄 Query stream emission #$emissionCount: ${initialData.length} items');
           controller.add(initialData);
         } catch (e) {
           controller.addError(e);
         }
 
-        // Set up polling (every 5 seconds)
-        timer = Timer.periodic(Duration(seconds: 5), (_) async {
+        timer = Timer.periodic(Duration(milliseconds: 200), (_) async {
           try {
             final data = await this.query(query: query);
-            controller.add(data);
+            // Use Dart's built-in list equality - much simpler!
+            if (!const ListEquality().equals(lastEmittedData, data)) {
+              lastEmittedData = List.from(data);
+              emissionCount++;
+              print('🔄 Query stream emission #$emissionCount: ${data.length} items');
+              controller.add(data);
+            }
           } catch (e) {
             controller.addError(e);
           }
         });
       },
-      onCancel: () => timer?.cancel(),
+      onCancel: () {
+        print('🛑 Cancelled query stream after $emissionCount emissions');
+        timer?.cancel();
+      },
     );
 
     return controller.stream;
