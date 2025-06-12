@@ -8,6 +8,7 @@ import 'utils/batch_operations.dart';
 import 'utils/dynamodb_identified_object.dart';
 import 'utils/object_extraction_helpers.dart';
 import 'utils/query_expression_helpers.dart';
+import 'utils/type_converter.dart';
 
 class RepositoryDynamoDB<T> extends Repository<T> {
   RepositoryDynamoDB({
@@ -31,8 +32,12 @@ class RepositoryDynamoDB<T> extends Repository<T> {
   Future<T> get(String id) async {
     try {
       final result = await client.get(tableName: tableName, key: {'id': id});
-
+      if (result.item.isEmpty) {
+        throw RepositoryException.notFound(id);
+      }
       return fromDynamoDB(result.item);
+    } on ResourceNotFoundException {
+      throw RepositoryException.notFound(id);
     } catch (e) {
       if (e is RepositoryException) rethrow;
       throw RepositoryException(message: 'Failed to get record: $e');
@@ -64,7 +69,9 @@ class RepositoryDynamoDB<T> extends Repository<T> {
     try {
       // Get current item
       final currentResult = await client.get(tableName: tableName, key: {'id': id});
-
+      if (currentResult.item.isEmpty) {
+        throw RepositoryException.notFound(id);
+      }
       final current = fromDynamoDB(currentResult.item);
       final updated = updater(current);
       final data = toDynamoDB(updated);
@@ -101,36 +108,28 @@ class RepositoryDynamoDB<T> extends Repository<T> {
 
         // Sort by creation date descending (newest first) to match other repositories
         objects.sort((a, b) {
-          // Try to extract creation date from objects
           try {
-            final aCreated = extractCreatedDate(a);
-            final bCreated = extractCreatedDate(b);
-            return bCreated.compareTo(aCreated); // Descending order (newest first)
+            return extractCreatedDate(b).compareTo(extractCreatedDate(a));
           } catch (e) {
-            // If sorting fails, maintain original order
-            return 0;
+            return 0; // Maintain original order if sorting fails
           }
         });
 
         return objects;
       } else if (queryBuilder != null) {
         // Use query builder to create scan parameters
-        final scanParams = buildExpressionAttributeValues(query);
-        if (scanParams == null || scanParams.isEmpty) {
-          throw RepositoryException(message: 'Query builder returned empty scan parameters for query: $query');
-        }
+        final scanParams = queryBuilder!.build(query);
 
-        // Extract components from the scan parameters map
         final filterExpression = scanParams['filterExpression'] as String?;
-        final expressionAttributeNames = buildExpressionAttributeNames(query);
-        final expressionAttributeValues = scanParams;
+        final expressionAttributeNames = scanParams['expressionAttributeNames'] as Map<String, String>?;
+        final expressionAttributeValues = scanParams['expressionAttributeValues'] as Map<String, dynamic>?;
 
         // Scan with filter expression
         final result = await client.scan(
           tableName: tableName,
           filterExpression: filterExpression,
-          expressionAttributeValues: expressionAttributeValues,
-          expressionAttributeNames: expressionAttributeNames,
+          expressionAttributeValues: filterExpression != null ? expressionAttributeValues : null,
+          expressionAttributeNames: filterExpression != null ? expressionAttributeNames : null,
         );
 
         final items = result.items ?? [];
@@ -139,11 +138,9 @@ class RepositoryDynamoDB<T> extends Repository<T> {
         // Sort by creation date descending for consistency with AllQuery
         objects.sort((a, b) {
           try {
-            final aCreated = extractCreatedDate(a);
-            final bCreated = extractCreatedDate(b);
-            return bCreated.compareTo(aCreated);
+            return extractCreatedDate(b).compareTo(extractCreatedDate(a));
           } catch (e) {
-            return 0;
+            return 0; // Maintain original order if sorting fails
           }
         });
 
@@ -230,7 +227,7 @@ class RepositoryDynamoDB<T> extends Repository<T> {
           controller.addError(e);
         }
 
-        timer = Timer.periodic(Duration(milliseconds: 200), (_) async {
+        timer = Timer.periodic(Duration(milliseconds: 10), (_) async {
           try {
             final data = await this.query(query: query);
             // Use Dart's built-in list equality - much simpler!
