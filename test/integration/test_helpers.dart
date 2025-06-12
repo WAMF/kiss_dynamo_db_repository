@@ -49,7 +49,7 @@ class IntegrationTestHelpers {
         'description': productModel.description,
         'created': productModel.created.toIso8601String(),
       },
-      queryBuilder: DynamoDBProductModelQueryBuilder(),
+      queryBuilder: TestDynamoDBProductQueryBuilder(),
     );
   }
 

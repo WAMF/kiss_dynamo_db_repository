@@ -4,7 +4,7 @@ import '../../../kiss_repository/shared_test_logic/data/queries.dart';
 
 /// DynamoDB-specific query builder for ProductModel tests
 /// Returns a Map with DynamoDB scan parameters instead of a string like PocketBase
-class DynamoDBProductModelQueryBuilder implements QueryBuilder<Map<String, dynamic>> {
+class TestDynamoDBProductQueryBuilder implements QueryBuilder<Map<String, dynamic>> {
   @override
   Map<String, dynamic> build(Query query) {
     if (query is QueryByName) {
