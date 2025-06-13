@@ -1,43 +1,117 @@
 # kiss_dynamodb_repository
 
-A DynamoDB implementation of the `kiss_repository` interface for Dart applications.
+A DynamoDB implementation of the `kiss_repository` interface for pure Dart applications.
 
-## Features
+## Overview
 
-- **Pure Dart**: No Flutter dependencies, works in any Dart environment
-- **Local Development**: Use DynamoDB Local emulator for cost-free development
-- **Repository Pattern**: Implements the standard `kiss_repository` interface
-- **Type Safe**: Full generic type support with proper error handling
+This package provides a DynamoDB backend implementation of the KISS repository pattern, designed for pure Dart applications that need AWS DynamoDB integration. Unlike Firebase (Flutter-focused) or PocketBase (real-time focused), this implementation targets server-side Dart, CLI tools, and applications requiring AWS ecosystem integration.
 
-## Getting Started
+## ✅ Standard Repository Features
+
+All implementations in the KISS repository family support these core features:
+
+- **CRUD Operations**: `create()`, `read()`, `update()`, `delete()`
+- **Bulk Operations**: `createMultiple()`, `updateMultiple()`, `deleteMultiple()`
+- **Query Builder**: `query()` with filtering, sorting, pagination
+- **Batch Operations**: Atomic multi-document transactions
+- **Type Safety**: Full generic type support with compile-time safety
+- **Error Handling**: Consistent exception types across all backends
+
+## 🗄️ DynamoDB-Specific Features
+
+### Pure Dart Environment
+- **No Flutter Dependencies**: Works in any Dart environment (server, CLI, IoT)
+- **Lightweight**: Minimal dependencies for maximum compatibility
+- **Cross-Platform**: Runs on any platform supporting Dart
+
+### AWS Ecosystem Integration
+- **Production Ready**: Built for AWS production environments
+- **Scalable**: Leverages DynamoDB's automatic scaling capabilities
+- **Cost Effective**: Pay-per-use pricing model with generous free tier
+
+### Local Development
+- **DynamoDB Local**: Full local emulator using `scripts/docker-compose.yml`
+- **Persistent Storage**: Data stored in `./docker/dynamodb/` survives container restarts
+- **No AWS Account Required**: Develop entirely offline with dummy credentials
+- **Shared Database**: Single database instance shared across all tables
+- **Telemetry Disabled**: Runs with `-disableTelemetry` flag for privacy
+
+## ⚠️ Limitations
+
+### No Real-Time Streaming
+The `stream()` and `streamQuery()` methods are **not implemented** due to DynamoDB's architectural constraints:
+
+- **DynamoDB Streams** are server-side, pull-based mechanisms designed for AWS Lambda
+- **Real-time client streaming** requires complex AWS infrastructure (API Gateway + Lambda + WebSocket)
+- **Client polling** is inefficient and not truly real-time
+
+**For real-time features, consider:**
+- Firebase via `kiss_firebase_repository`
+- PocketBase via `kiss_pocketbase_repository`
+
+### AWS-Specific Query Limitations
+- **Case-sensitive queries**: DynamoDB is case-sensitive by default
+- **Limited text search**: No built-in full-text search (consider AWS OpenSearch)
+- **Complex joins**: NoSQL limitations apply
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Dart SDK ^3.8.0
-- **Docker Desktop**: Must be installed and running before proceeding
+- **Dart SDK**: ^3.8.0 or higher
+- **Docker Desktop**: Must be installed and running
   - Download from [docker.com](https://www.docker.com/products/docker-desktop/)
-  - Ensure Docker Desktop is started before running DynamoDB Local
+  - Ensure Docker Desktop is started before proceeding
 
-### Running DynamoDB Local Emulator
+### Installation
 
-```bash
-# Start DynamoDB Local (downloads image first time ~100MB)
-./scripts/start_dynamodb.sh
+```yaml
+# pubspec.yaml
+dependencies:
+  kiss_dynamodb_repository: ^1.0.0
 ```
 
-The start script will:
-- Create necessary directories
-- Start DynamoDB Local on port 8000  
-- Verify it's running
-- Test connection if AWS CLI is available
+### Basic Usage
 
-```bash
-# Stop DynamoDB Local  
-./scripts/stop_dynamodb.sh
+```dart
+import 'package:document_client/document_client.dart';
+import 'package:kiss_dynamodb_repository/kiss_dynamodb_repository.dart';
+
+// Initialize client
+final client = DocumentClient(
+  region: 'us-east-1',
+  dynamoDB: DynamoDB(
+    region: 'us-east-1',
+    credentials: AwsClientCredentials(accessKey: 'key', secretKey: 'secret'),
+    endpointUrl: 'http://localhost:8000', // For local development
+  ),
+);
+
+// Create repository
+final repository = RepositoryDynamoDB<MyModel>(
+  client: client,
+  tableName: 'my_table',
+  fromDynamoDB: (item) => MyModel.fromMap(item),
+  toDynamoDB: (model) => model.toMap(),
+);
 ```
 
+## 🔧 Development Setup
 
-### Verify DynamoDB Local is Running
+### 1. Start DynamoDB Local Emulator
+
+```bash
+# Start DynamoDB Local emulator
+./scripts/start_emulator.sh
+```
+
+The emulator will:
+- Download DynamoDB Local Docker image (~100MB first time)
+- Start DynamoDB Local on port 8000
+- Create persistent storage in `./docker/dynamodb/`
+- Verify connection
+
+### 2. Verify Emulator is Running
 
 ```bash
 # Test connection (requires AWS CLI: brew install awscli)
@@ -46,77 +120,115 @@ aws dynamodb list-tables --endpoint-url http://localhost:8000
 
 **Expected output:** `{"TableNames": []}`
 
-## Usage
+### 3. Run Integration Tests
+
+```bash
+# In a separate terminal
+./scripts/run_tests.sh
+```
+
+### Stop Emulator
+
+```bash
+./scripts/stop_dynamodb.sh
+```
+
+## 📖 Usage
+
+### Repository Configuration
 
 ```dart
-import 'package:kiss_dynamodb_repository/kiss_dynamodb_repository.dart';
+// Local development
+final localRepo = RepositoryDynamoDB<MyModel>(
+  client: DocumentClient(/* ... with endpointUrl: 'http://localhost:8000' */),
+  tableName: 'my_table',
+  fromDynamoDB: MyModel.fromMap,
+  toDynamoDB: (model) => model.toMap(),
+);
 
-// TODO: Usage examples will be added during implementation
+// Production
+final prodRepo = RepositoryDynamoDB<MyModel>(
+  client: DocumentClient(/* ... with AWS credentials */),
+  tableName: 'prod_table',
+  fromDynamoDB: MyModel.fromMap,
+  toDynamoDB: (model) => model.toMap(),
+);
 ```
 
-## Development
+### CRUD Operations
 
-- **Emulator Endpoint**: `http://localhost:8000`
-- **No AWS Credentials Required**: Local emulator accepts any credentials
-- **Persistent Data**: Docker volume stores data in `./docker/dynamodb/`
-- **Port**: Default port 8000 (configurable with `-port` option)
+```dart
+// Basic operations
+final item = await repository.add(IdentifiedObject(id: 'id', object: myModel));
+final retrieved = await repository.get('id');
+final updated = await repository.update('id', (current) => current.copyWith(name: 'new'));
+await repository.delete('id');
 
-## Scripts
-
-- `./scripts/start_dynamodb.sh` - Start DynamoDB Local with setup
-- `./scripts/stop_dynamodb.sh` - Stop DynamoDB Local cleanly
-- `./scripts/docker-compose.yml` - Docker Compose configuration
-
-## Additional Information
-
-This package is part of the KISS repository family:
-- `kiss_repository` - Core interfaces
-- `kiss_firebase_repository` - Firestore implementation  
-- `kiss_pocketbase_repository` - PocketBase implementation
-- `kiss_dynamodb_repository` - DynamoDB implementation (this package)
-
-
-### ⚠️ Streaming Not Implemented
-
-**Real-time streaming capabilities (`stream()` and `streamQuery()`) are not implemented in this version.**
-
-These methods will throw `UnimplementedError` when called. This is due to the architectural complexity required for proper DynamoDB streaming, which would need:
-
-- DynamoDB Streams configuration
-- AWS Lambda functions for stream processing  
-- WebSocket or similar real-time communication layer
-
-For real-time updates, consider using:
-- **Firebase/Firestore** via `kiss_firebase_repository`
-- **PocketBase** via `kiss_pocketbase_repository`  
-- Implementing a custom streaming solution with AWS infrastructure
-
-#### Future Implementation: Production Architecture
-
-For reference, a proper DynamoDB streaming implementation would require this architecture:
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Dart Client   │◄──►│  API Gateway    │◄──►│  Lambda Function│
-│  (WebSocket)    │    │  (WebSocket)    │    │ (Stream Processor)│
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                                        ▲
-                                                        │
-                                              ┌─────────────────┐
-                                              │ DynamoDB Stream │
-                                              │   (Pull-based)  │
-                                              └─────────────────┘
+// Batch operations
+await repository.addAll([IdentifiedObject(id: '1', object: model1)]);
+await repository.updateAll([IdentifiedObject(id: '1', object: updatedModel)]);
+await repository.deleteAll(['1', '2', '3']);
 ```
 
-**Required AWS Infrastructure:**
-1. **DynamoDB Stream** - Captures table changes (INSERT/MODIFY/DELETE events)
-2. **AWS Lambda Function** - Processes stream events and filters by subscription
-3. **API Gateway WebSocket API** - Manages persistent client connections
-4. **Connection Management** - Store client subscriptions and connection IDs
+### Query Operations
 
-**Why Client-Side Polling Doesn't Work:**
-- **DynamoDB Streams** are server-side, pull-based mechanisms designed for AWS Lambda
-- **Client applications** expect push-based, real-time updates over persistent connections
-- **Polling approaches** are inefficient, not truly real-time, and don't scale
+```dart
+// Query all items
+final allItems = await repository.query();
 
-This architectural requirement is why streaming is not implemented in this repository version.
+// Custom queries need a QueryBuilder
+class MyQueryBuilder implements QueryBuilder<Map<String, dynamic>> {
+  @override
+  Map<String, dynamic> build(Query query) {
+    if (query is QueryByName) {
+      return {
+        'filterExpression': 'contains(#name, :name)',
+        'expressionAttributeNames': {'#name': 'name'},
+        'expressionAttributeValues': {':name': query.name},
+      };
+    }
+    return {}; // Fallback to scan all
+  }
+}
+
+// Use with repository
+final repository = RepositoryDynamoDB<MyModel>(
+  // ... other params
+  queryBuilder: MyQueryBuilder(),
+);
+
+final results = await repository.query(query: QueryByName('search'));
+```
+
+## 🔄 Comparison
+
+For a detailed comparison of all KISS repository implementations, see the [main repository comparison table](https://github.com/clukes/kiss_repository#implementation-comparison).
+
+## 📁 Example Application
+
+See the [shared example application](https://github.com/clukes/kiss_repository/tree/main/example) for a complete implementation using all repository backends, including DynamoDB.
+
+---
+
+## Development Details
+
+### Emulator Configuration
+- **Endpoint**: `http://localhost:8000`
+- **Credentials**: Any dummy credentials work with local emulator
+- **Docker Image**: `amazon/dynamodb-local:2.5.2`
+- **Container Name**: `dynamodb-local`
+- **Storage**: Persistent volume mounted to `./docker/dynamodb/`
+- **Flags**: `-sharedDb -dbPath ./data -disableTelemetry`
+- **Port**: 8000 (configurable in `scripts/docker-compose.yml`)
+
+### Available Scripts
+- `./scripts/start_emulator.sh` - Start DynamoDB Local emulator
+- `./scripts/run_tests.sh` - Run integration tests
+- `./scripts/stop_dynamodb.sh` - Stop emulator cleanly
+
+---
+
+*This package is part of the KISS repository family. For other implementations, see:*
+- *[Core Interface](https://github.com/clukes/kiss_repository) - `kiss_repository`*
+- *[Firebase/Firestore](https://github.com/clukes/kiss_firebase_repository) - `kiss_firebase_repository`*
+- *[PocketBase](https://github.com/clukes/kiss_pocketbase_repository) - `kiss_pocketbase_repository`*
