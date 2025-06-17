@@ -18,4 +18,4 @@ echo "✅ DynamoDB Local emulator detected"
 
 # Run integration tests
 echo "🚀 Running integration tests..."
-dart test test/integration/all_integration_tests.dart 
+dart test test/integration/all_integration_tests.dart
