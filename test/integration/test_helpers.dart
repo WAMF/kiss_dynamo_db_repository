@@ -81,7 +81,7 @@ class IntegrationTestHelpers {
       if (response.table?.tableStatus == TableStatus.active) {
         break;
       }
-      await Future.delayed(Duration(milliseconds: 500));
+      await Future<void>.delayed(const Duration(milliseconds: 500));
     }
   }
 
