@@ -1,24 +1,25 @@
 import 'package:test/test.dart';
+import 'package:kiss_repository/kiss_repository.dart';
+import 'package:kiss_repository_tests/test.dart';
 
-import '../../../kiss_repository/shared_test_logic/data/product_model.dart';
-import 'test_helpers.dart';
+import 'factories/dynamodb_repository_factory.dart';
 
 void main() {
-  setUpAll(() async {
-    await IntegrationTestHelpers.setupIntegrationTests();
-  });
+  late DynamoDBRepositoryFactory factory;
+  late Repository<ProductModel> repository;
 
-  tearDownAll(() async {
-    await IntegrationTestHelpers.tearDownIntegrationTests();
+  setUpAll(() async {
+    await DynamoDBRepositoryFactory.initialize();
+    factory = DynamoDBRepositoryFactory();
+    repository = factory.createRepository();
   });
 
   setUp(() async {
-    await IntegrationTestHelpers.clearTestTable();
+    await factory.cleanup();
   });
 
   group('DynamoDB-Specific Behavior', () {
     test('addAutoIdentified without updateObjectWithId returns object with server-generated ID', () async {
-      final repository = IntegrationTestHelpers.repository;
       final productModel = ProductModel.create(name: 'ProductX', price: 9.99);
 
       final addedObject = await repository.addAutoIdentified(productModel);
