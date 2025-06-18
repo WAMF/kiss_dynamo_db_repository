@@ -1,7 +1,7 @@
 import 'package:test/test.dart';
 
-import 'kiss_tests.dart' as kiss_tests;
 import 'dynamodb_specific_tests.dart' as dynamodb_specific_tests;
+import 'kiss_tests.dart' as kiss_tests;
 
 void main() {
   group('All DynamoDB Integration Tests', () {
