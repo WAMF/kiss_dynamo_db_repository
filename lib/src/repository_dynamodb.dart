@@ -1,11 +1,10 @@
 import 'dart:async';
 
 import 'package:document_client/document_client.dart';
+import 'package:kiss_dynamodb_repository/src/utils/batch_operations.dart';
+import 'package:kiss_dynamodb_repository/src/utils/dynamodb_identified_object.dart';
+import 'package:kiss_dynamodb_repository/src/utils/object_extraction_helpers.dart';
 import 'package:kiss_repository/kiss_repository.dart';
-
-import 'utils/batch_operations.dart';
-import 'utils/dynamodb_identified_object.dart';
-import 'utils/object_extraction_helpers.dart';
 
 class RepositoryDynamoDB<T> extends Repository<T> {
   RepositoryDynamoDB({

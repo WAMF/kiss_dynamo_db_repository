@@ -1,7 +1,6 @@
 import 'package:document_client/document_client.dart';
+import 'package:kiss_dynamodb_repository/src/utils/type_converter.dart';
 import 'package:kiss_repository/kiss_repository.dart';
-
-import 'type_converter.dart';
 
 /// Maximum number of items per BatchGetItem request
 /// https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_BatchGetItem.html
