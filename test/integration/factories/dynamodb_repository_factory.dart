@@ -7,7 +7,7 @@ import 'package:kiss_repository_tests/kiss_repository_tests.dart';
 
 import 'dynamodb_query_builder.dart';
 
-class DynamoDBRepositoryFactory implements RepositoryFactory {
+class DynamoDBRepositoryFactory implements RepositoryFactory<ProductModel> {
   static late DynamoDB _dynamoDB;
   static late DocumentClient _documentClient;
   static bool _initialized = false;
