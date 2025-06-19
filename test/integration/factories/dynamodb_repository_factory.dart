@@ -3,7 +3,7 @@
 import 'package:document_client/document_client.dart';
 import 'package:kiss_dynamodb_repository/kiss_dynamodb_repository.dart';
 import 'package:kiss_repository/kiss_repository.dart';
-import 'package:kiss_repository_tests/test.dart';
+import 'package:kiss_repository_tests/kiss_repository_tests.dart';
 
 import 'dynamodb_query_builder.dart';
 
