@@ -1,7 +1,6 @@
 import 'package:document_client/document_client.dart';
+import 'package:kiss_dynamodb_repository/src/utils/type_converter.dart';
 import 'package:kiss_repository/kiss_repository.dart';
-
-import 'type_converter.dart';
 
 /// Maximum number of items per BatchGetItem request
 /// https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_BatchGetItem.html
@@ -21,18 +20,17 @@ Future<void> checkItemsExist({
   final dynamoDB = client.dynamoDB;
   final idsList = ids.toList();
 
-  for (int i = 0; i < idsList.length; i += _batchGetItemLimit) {
+  for (var i = 0; i < idsList.length; i += _batchGetItemLimit) {
     final batchIds = idsList.skip(i).take(_batchGetItemLimit);
     final keys = batchIds.map((id) => {'id': AttributeValue(s: id)}).toList();
 
     final response = await dynamoDB.batchGetItem(requestItems: {tableName: KeysAndAttributes(keys: keys)});
-    var returnedItems = response.responses?[tableName] ?? [];
+    final returnedItems = response.responses?[tableName] ?? [];
 
     var unprocessedKeys = response.unprocessedKeys?[tableName]?.keys ?? <Map<String, AttributeValue>>[];
 
     while (unprocessedKeys.isNotEmpty) {
-      print('🔁 Retrying ${unprocessedKeys.length} unprocessed read keys...');
-      await Future.delayed(Duration(milliseconds: _retryBackoffMs));
+      await Future<void>.delayed(const Duration(milliseconds: _retryBackoffMs));
       final retryResponse = await dynamoDB.batchGetItem(
         requestItems: {tableName: KeysAndAttributes(keys: unprocessedKeys)},
       );
@@ -63,7 +61,7 @@ Future<void> batchWriteItems<T>({
 }) async {
   final dynamoDB = client.dynamoDB;
 
-  for (int i = 0; i < items.length; i += _batchWriteItemLimit) {
+  for (var i = 0; i < items.length; i += _batchWriteItemLimit) {
     final batchItems = items.skip(i).take(_batchWriteItemLimit).toList();
     final writeRequests = <WriteRequest>[];
 
@@ -83,8 +81,7 @@ Future<void> batchWriteItems<T>({
     var unprocessed = response.unprocessedItems?[tableName] ?? <WriteRequest>[];
 
     while (unprocessed.isNotEmpty) {
-      print('🔁 Retrying ${unprocessed.length} unprocessed write items...');
-      await Future.delayed(Duration(milliseconds: _retryBackoffMs));
+      await Future<void>.delayed(const Duration(milliseconds: _retryBackoffMs));
       final retryResponse = await dynamoDB.batchWriteItem(requestItems: {tableName: unprocessed});
       unprocessed = retryResponse.unprocessedItems?[tableName] ?? <WriteRequest>[];
     }
@@ -100,7 +97,7 @@ Future<void> batchDeleteItems({
 
   final idsList = ids.toList();
 
-  for (int i = 0; i < idsList.length; i += _batchWriteItemLimit) {
+  for (var i = 0; i < idsList.length; i += _batchWriteItemLimit) {
     final batchIds = idsList.skip(i).take(_batchWriteItemLimit).toList();
     final writeRequests = <WriteRequest>[];
 
@@ -114,8 +111,7 @@ Future<void> batchDeleteItems({
     var unprocessed = response.unprocessedItems?[tableName] ?? <WriteRequest>[];
 
     while (unprocessed.isNotEmpty) {
-      print('🔁 Retrying ${unprocessed.length} unprocessed delete items...');
-      await Future.delayed(Duration(milliseconds: _retryBackoffMs));
+      await Future<void>.delayed(const Duration(milliseconds: _retryBackoffMs));
       final retryResponse = await dynamoDB.batchWriteItem(requestItems: {tableName: unprocessed});
       unprocessed = retryResponse.unprocessedItems?[tableName] ?? <WriteRequest>[];
     }
