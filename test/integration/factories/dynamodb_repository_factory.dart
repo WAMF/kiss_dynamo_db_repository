@@ -21,7 +21,33 @@ class DynamoDBRepositoryFactory implements RepositoryFactory<ProductModel> {
   static const String _fakeSecretKey = 'fakeSecretKey';
   static const String _fakeRegion = 'us-east-1';
 
-  static Future<void> initialize() async {
+  @override
+  Future<Repository<ProductModel>> createRepository() async {
+    await _initialize();
+
+    _repository = RepositoryDynamoDB<ProductModel>(
+      client: _documentClient,
+      tableName: _testTable,
+      fromDynamoDB: (item) => ProductModel(
+        id: item['id'] as String,
+        name: item['name'] as String,
+        price: (item['price'] as num).toDouble(),
+        description: item['description'] as String? ?? '',
+        created: DateTime.parse(item['created'] as String),
+      ),
+      toDynamoDB: (productModel) => {
+        'id': productModel.id,
+        'name': productModel.name,
+        'price': productModel.price,
+        'description': productModel.description,
+        'created': productModel.created.toIso8601String(),
+      },
+      queryBuilder: TestDynamoDBProductQueryBuilder(),
+    );
+    return _repository!;
+  }
+
+  static Future<void> _initialize() async {
     if (_initialized) return;
 
     // Initialize DynamoDB client with local endpoint
@@ -83,34 +109,6 @@ class DynamoDBRepositoryFactory implements RepositoryFactory<ProductModel> {
       }
       await Future<void>.delayed(const Duration(milliseconds: 500));
     }
-  }
-
-  @override
-  Repository<ProductModel> createRepository() {
-    if (!_initialized) {
-      throw StateError('Factory not initialized. Call initialize() first.');
-    }
-
-    _repository = RepositoryDynamoDB<ProductModel>(
-      client: _documentClient,
-      tableName: _testTable,
-      fromDynamoDB: (item) => ProductModel(
-        id: item['id'] as String,
-        name: item['name'] as String,
-        price: (item['price'] as num).toDouble(),
-        description: item['description'] as String? ?? '',
-        created: DateTime.parse(item['created'] as String),
-      ),
-      toDynamoDB: (productModel) => {
-        'id': productModel.id,
-        'name': productModel.name,
-        'price': productModel.price,
-        'description': productModel.description,
-        'created': productModel.created.toIso8601String(),
-      },
-      queryBuilder: TestDynamoDBProductQueryBuilder(),
-    );
-    return _repository!;
   }
 
   @override
