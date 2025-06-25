@@ -1,38 +1,7 @@
-import 'package:test/test.dart';
+import 'package:kiss_repository_tests/kiss_repository_tests.dart';
 
-import '../../../kiss_repository/test/integration/kiss_dart_tests.dart';
-import 'test_helpers.dart';
+import 'factories/dynamodb_repository_factory.dart';
 
 void main() {
-  setUpAll(() async {
-    await IntegrationTestHelpers.setupIntegrationTests();
-  });
-
-  tearDownAll(() async {
-    await IntegrationTestHelpers.tearDownIntegrationTests();
-  });
-
-  setUp(() async {
-    await IntegrationTestHelpers.clearTestTable();
-  });
-
-  group('DynamoDB Repository - Centralized CRUD Tests', () {
-    runDartCrudTests(() => IntegrationTestHelpers.repository);
-  });
-
-  group('Batch Operations Tests', () {
-    runDartBatchTests(() => IntegrationTestHelpers.repository);
-  });
-
-  group('Query Filtering Tests', () {
-    runDartQueryTests(() => IntegrationTestHelpers.repository);
-  });
-
-  // group('Streaming Tests', () {
-  //   runDartStreamingTests(() => IntegrationTestHelpers.repository);
-  // });
-
-  group('ID Management Tests', () {
-    runDartIdTests(() => IntegrationTestHelpers.repository);
-  });
+  runRepositoryTests(implementationName: 'DynamoDB', factoryProvider: DynamoDBRepositoryFactory.new, cleanup: () {});
 }
