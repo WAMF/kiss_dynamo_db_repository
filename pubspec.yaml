@@ -12,9 +12,9 @@ dependencies:
   shared_aws_api: ^2.0.0            # AWS shared utilities
   uuid: ^4.5.1                      # UUID generation for auto-identification
   
-  kiss_repository:
-    path: ../kiss_repository
+  kiss_repository: ^0.11.0
 
 dev_dependencies:
   test: ^1.24.0
-  lints: ^5.0.0
+  very_good_analysis: ^6.0.0
+  kiss_repository_tests: ^0.1.0
