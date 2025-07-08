@@ -17,5 +17,4 @@ dependencies:
 dev_dependencies:
   test: ^1.24.0
   very_good_analysis: ^6.0.0
-  kiss_repository_tests:
-    path: ../kiss_repository_tests
+  kiss_repository_tests: ^0.2.0
