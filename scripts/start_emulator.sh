@@ -3,6 +3,17 @@
 # DynamoDB Local Setup Script
 echo "🚀 Starting DynamoDB Local..."
 
+# Check if Docker daemon is running
+if ! docker info > /dev/null 2>&1; then
+    echo "❌ Docker daemon is not running"
+    echo "💡 Please start Docker Desktop or Docker daemon first"
+    echo "   - On macOS: Open Docker Desktop application"
+    echo "   - On Linux: sudo systemctl start docker"
+    exit 1
+fi
+
+echo "✅ Docker daemon is running"
+
 # Get the script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -10,9 +21,18 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 # Create data directory if it doesn't exist
 mkdir -p "$PROJECT_DIR/docker/dynamodb"
 
-# Start DynamoDB Local using Docker Compose
+# Check if DynamoDB container is already running
 cd "$SCRIPT_DIR"
-docker-compose up -d
+if docker-compose ps | grep -q "dynamodb-local.*Up"; then
+    echo "✅ DynamoDB Local container is already running"
+elif docker ps -a --format "table {{.Names}}" | grep -q "dynamodb-local"; then
+    echo "🔄 DynamoDB Local container exists but is stopped. Restarting..."
+    docker-compose down
+    docker-compose up -d
+else
+    echo "🆕 Starting new DynamoDB Local container..."
+    docker-compose up -d
+fi
 
 # Wait a moment for container to start
 sleep 3

@@ -15,14 +15,6 @@ Map<String, dynamic>? buildExpressionAttributeValues(Query query) {
     final dynamic queryByPrice = query;
     return {':priceThreshold': queryByPrice.price};
   }
-  if (query.runtimeType.toString().contains('QueryByCreatedAfter')) {
-    final dynamic queryByCreated = query;
-    return {':dateThreshold': queryByCreated.date.toIso8601String()};
-  }
-  if (query.runtimeType.toString().contains('QueryByCreatedBefore')) {
-    final dynamic queryByCreated = query;
-    return {':dateThreshold': queryByCreated.date.toIso8601String()};
-  }
   return null;
 }
 
@@ -33,9 +25,6 @@ Map<String, String>? buildExpressionAttributeNames(Query query) {
   }
   if (query.runtimeType.toString().contains('QueryByPrice')) {
     return {'#price': 'price'};
-  }
-  if (query.runtimeType.toString().contains('QueryByCreated')) {
-    return {'#created': 'created'};
   }
   return null;
 }

@@ -36,18 +36,21 @@ All implementations in the KISS repository family support these core features:
 - **Shared Database**: Single database instance shared across all tables
 - **Telemetry Disabled**: Runs with `-disableTelemetry` flag for privacy
 
-## ⚠️ Limitations
+### 📡 Streaming Architecture
+- ❌ **No Streaming**: No real-time streaming capabilities
+- ❌ **No Client Streams**: DynamoDB doesn't provide client-side real-time streams
+- ⚠️ **Server-Side Only**: DynamoDB Streams are designed for AWS Lambda, not client applications
+- ❌ **Polling Required**: Real-time updates require inefficient client polling
+- ⚠️ **Complex Workarounds**: True streaming needs AWS infrastructure (API Gateway + Lambda + WebSocket)
+- ✅ **Perfect for**: Batch processing, high-throughput applications, AWS-native services
+- ❌ **Not suitable for**: Real-time collaborative applications, live dashboards
 
-### No Real-Time Streaming
-The `stream()` and `streamQuery()` methods are **not implemented** due to DynamoDB's architectural constraints:
+**Streaming Alternatives**: For real-time features, consider:
+- `kiss_firebase_repository` - ✅ Multi-instance real-time streaming
+- `kiss_pocketbase_repository` - ✅ Multi-instance real-time streaming
+- `kiss_drift_repository` - ⚠️ Single-instance streaming only
 
-- **DynamoDB Streams** are server-side, pull-based mechanisms designed for AWS Lambda
-- **Real-time client streaming** requires complex AWS infrastructure (API Gateway + Lambda + WebSocket)
-- **Client polling** is inefficient and not truly real-time
-
-**For real-time features, consider:**
-- Firebase via `kiss_firebase_repository`
-- PocketBase via `kiss_pocketbase_repository`
+## ⚠️ Other Limitations
 
 ### AWS-Specific Query Limitations
 - **Case-sensitive queries**: DynamoDB is case-sensitive by default
