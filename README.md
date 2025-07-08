@@ -66,14 +66,6 @@ All implementations in the KISS repository family support these core features:
   - Download from [docker.com](https://www.docker.com/products/docker-desktop/)
   - Ensure Docker Desktop is started before proceeding
 
-### Installation
-
-```yaml
-# pubspec.yaml
-dependencies:
-  kiss_dynamodb_repository: ^1.0.0
-```
-
 ### Basic Usage
 
 ```dart
