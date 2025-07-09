@@ -1,6 +1,6 @@
 name: kiss_dynamodb_repository
 description: "A DynamoDB implementation of kiss_repository interface"
-version: 0.1.0
+version: 0.1.1
 homepage: https://github.com/WAMF/kiss_dynamodb_repository
 
 environment:
@@ -17,4 +17,4 @@ dependencies:
 dev_dependencies:
   test: ^1.24.0
   very_good_analysis: ^6.0.0
-  kiss_repository_tests: ^0.1.0
+  kiss_repository_tests: ^0.2.0

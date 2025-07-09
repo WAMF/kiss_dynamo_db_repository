@@ -14,35 +14,23 @@ class TestDynamoDBProductQueryBuilder implements QueryBuilder<Map<String, dynami
       };
     }
 
-    if (query is QueryByPriceGreaterThan) {
+    if (query is QueryByPriceRange) {
+      final conditions = <String>[];
+      final attributeValues = <String, dynamic>{};
+
+      if (query.minPrice != null) {
+        conditions.add('#price >= :minPrice');
+        attributeValues[':minPrice'] = query.minPrice;
+      }
+      if (query.maxPrice != null) {
+        conditions.add('#price <= :maxPrice');
+        attributeValues[':maxPrice'] = query.maxPrice;
+      }
+
       return {
-        'filterExpression': '#price > :price',
+        'filterExpression': conditions.join(' AND '),
         'expressionAttributeNames': {'#price': 'price'},
-        'expressionAttributeValues': {':price': query.price},
-      };
-    }
-
-    if (query is QueryByPriceLessThan) {
-      return {
-        'filterExpression': '#price < :price',
-        'expressionAttributeNames': {'#price': 'price'},
-        'expressionAttributeValues': {':price': query.price},
-      };
-    }
-
-    if (query is QueryByCreatedAfter) {
-      return {
-        'filterExpression': '#created >= :created',
-        'expressionAttributeNames': {'#created': 'created'},
-        'expressionAttributeValues': {':created': query.date.toIso8601String()},
-      };
-    }
-
-    if (query is QueryByCreatedBefore) {
-      return {
-        'filterExpression': '#created <= :created',
-        'expressionAttributeNames': {'#created': 'created'},
-        'expressionAttributeValues': {':created': query.date.toIso8601String()},
+        'expressionAttributeValues': attributeValues,
       };
     }
 
